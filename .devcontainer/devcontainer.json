@@ -1,0 +1,25 @@
+{
+	"name": "Minecraft Cubic Agents",
+	"dockerComposeFile": [
+		"docker-compose.yml"
+	],
+	"service": "agents",
+	"workspaceFolder": "/workspace",
+	"runServices": [
+		"server"
+	],
+	"shutdownAction": "stopCompose",
+	"forwardPorts": [
+		25565
+	],
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-vscode.vscode-typescript-tslint-plugin"
+			]
+		}
+	},
+	"features": {
+		"ghcr.io/shyim/devcontainers-features/bun:0": {}
+	}
+}

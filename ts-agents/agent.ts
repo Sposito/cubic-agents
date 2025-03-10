@@ -50,40 +50,85 @@ export class Agent {
 
 
             if (message === 'mine') {
-                this.gatherDirt()
+                this.gatherDirt(32)
+
+            }
+
+            if (message === 'spread') {
+                this.spread()
 
             }
         });
     }
 
-    gatherDirt() {
-        this.bot.pathfinder.setGoal(null);
-
-        // Find the nearest dirt block
-        const dirtBlock = this.bot.findBlock({
-            matching: this.bot.registry.blocksByName.dirt.id,
-            maxDistance: 16
-        });
-
-        if (!dirtBlock) {
-            this.bot.chat("I can't find any dirt nearby!");
+    async gatherDirt(amount: number) {
+        this.bot.pathfinder.setGoal(null); // Stop movement before digging
+    
+        let gathered = 0;
+        const maxStackSize = 64;
+        const inventorySpace = this.bot.inventory.emptySlotCount() * maxStackSize;
+    
+        if (amount > inventorySpace) {
+            this.bot.chat("I don't have enough inventory space for that much dirt!");
             return;
         }
+    
+        while (gathered < amount) {
+            let dirtBlock = this.bot.findBlock({
+                matching: this.bot.registry.blocksByName.dirt.id,
+                maxDistance: 16
+            });
+    
+            if (!dirtBlock) {
+                this.bot.chat("I can't find any more dirt nearby!");
+                return;
+            }
+    
+            const defaultMove = new Movements(this.bot);
+            this.bot.pathfinder.setMovements(defaultMove);
+            this.bot.pathfinder.setGoal(new GoalBlock(dirtBlock.position.x, dirtBlock.position.y, dirtBlock.position.z));
+    
+            await new Promise<void>(resolve => this.bot.once('goal_reached', resolve));
+    
+            // Double-check if the block still exists before digging
+            if (!this.bot.blockAt(dirtBlock.position)) {
+                this.bot.chat("The block disappeared! Searching for a new one...");
+                continue; // Go back to the start of the loop and look for a new block
+            }
+    
+            const tool = this.bot.inventory.items().find(item => item.name.includes('shovel')) ?? this.bot.heldItem;
+            if (tool) await this.bot.equip(tool, 'hand');
+    
+            try {
+                await this.bot.dig(dirtBlock);
+                gathered++;
+                this.bot.chat(`I've mined ${gathered}/${amount} dirt blocks!`);
+            } catch (err) {
+                this.bot.chat(`Failed to dig: ${err.message}`);
+            }
+        }
+    
+        this.bot.chat("I've gathered all the dirt you requested!");
+    }
+    
 
-        // Set up movements and goal
+    spread() {
+        const startPosition = this.bot.entity.position;
+    
+        const offsetX = Math.floor(Math.random() * 8) + 1; // Random offset between 1 and 8
+        const offsetZ = Math.floor(Math.random() * 8) + 1;
+        
+        const targetX = startPosition.x + (Math.random() < 0.5 ? offsetX : -offsetX);
+        const targetZ = startPosition.z + (Math.random() < 0.5 ? offsetZ : -offsetZ);
+        const targetY = startPosition.y; // Keep the same Y level
+    
         const defaultMove = new Movements(this.bot);
         this.bot.pathfinder.setMovements(defaultMove);
-        this.bot.pathfinder.setGoal(new GoalBlock(dirtBlock.position.x, dirtBlock.position.y, dirtBlock.position.z));
-
-        // Wait for the bot to reach the goal
-        this.bot.once('goal_reached', async () => {
-            // Equip a shovel if available
-            const tool = this.bot.inventory.items().find(item => item.name.includes('shovel')) || this.bot.heldItem;
-            if (tool) await this.bot.equip(tool, 'hand');
-
-            // Dig the dirt block
-            await this.bot.dig(dirtBlock);
-            this.bot.chat("I've mined a dirt block!");
-        });
+        this.bot.pathfinder.setGoal(new GoalBlock(Math.floor(targetX), Math.floor(targetY), Math.floor(targetZ)));
     }
+    
+    
+
+    
+    
 }

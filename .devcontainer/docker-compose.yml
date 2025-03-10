@@ -28,7 +28,9 @@ services:
   agents:
     tty: true
     stdin_open: true
-    image: "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm"
+    image: "oven/bun:canary"
+    working_dir: "/workspace"
     user: "${UID}:${GID}"
     volumes:
       - "../ts-agents:/workspace"
+    command: ["sleep", "infinity"]
